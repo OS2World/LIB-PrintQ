@@ -1,0 +1,27 @@
+/* hello.rc: resource script file for Hello queue/2 */
+/* Version 1.3, (C) Peter Wansch, 1993              */
+/* created: 93-8-16                                 */
+
+#include <os2.h>
+#include "hello.h"
+
+ICON WD_MAIN PRELOAD hello.ico
+
+ACCELTABLE WD_MAIN PRELOAD
+BEGIN
+  VK_F1, MI_INFO, VIRTUALKEY
+END
+
+MENU WD_MAIN PRELOAD
+BEGIN
+  SUBMENU "~Options", SM_OPTIONS
+  BEGIN
+    MENUITEM "Printer ~setup...",           MI_SETUP, MIS_TEXT
+    MENUITEM "~Print",                      MI_PRINT, MIS_TEXT
+    MENUITEM "Printer ~font...",            MI_FONT, MIS_TEXT
+    MENUITEM SEPARATOR
+    MENUITEM "Product ~information...\tF1", MI_INFO,  MIS_TEXT
+  END
+END
+rcinclude hello.dlg
+

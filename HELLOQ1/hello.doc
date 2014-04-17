@@ -1,0 +1,6 @@
+Important Notice
+================
+
+In order to run HELLO.EXE you have to copy the file printq.dll from the \PRINTQ
+directory to a path that is included in the LIBPATH statement in your 
+CONFIG.SYS file (e. g. \OS2\DLL).

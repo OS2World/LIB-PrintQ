@@ -1,0 +1,10 @@
+Important Notice
+================
+
+In order to run HELLO.EXE you have to copy the file printq.dll from the \PRINTQ
+directory to a path that is included in the LIBPATH statement in your 
+CONFIG.SYS file (e. g. \OS2\DLL).
+
+Printing in Hello queue/2 1.2 takes longer than in the other sample programs
+because the print thread is suspended for one second after each line is printed
+to give you enought time to abort the job. 

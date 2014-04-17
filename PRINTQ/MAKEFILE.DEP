@@ -1,0 +1,25 @@
+# IBM Developer's Workframe/2 Make File Creation run at 11:00:09 on 08/19/93
+
+# Make File Creation run in directory:
+#   C:\SOURCE\PRINTQ;
+
+# Assumed INCLUDE environment variable path:
+#   C:\IBMCPP\INCLUDE;
+#   C:\IBMCPP\IBMCLASS;
+#   C:\TOOLKT20\CPLUS\OS2H;
+#   C:\TOOLKT20\C\OS2H;
+#   C:\TOOLKT20\ASM\OS2INC;
+
+
+INCLUDE001=.
+INCLUDE001=$(INCLUDE001);$(INCLUDE)
+
+INCLUDE000=$(INCLUDE)
+
+
+printq.OBJ:  printq.c  \
+#  {$(INCLUDE000)}stddef.h  \
+#  {$(INCLUDE000)}string.h  \
+   {$(INCLUDE001)}printq.h  \
+#    {$(INCLUDE000)}os2.h  \
+   MAKEFILE

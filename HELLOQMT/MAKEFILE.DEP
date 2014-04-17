@@ -1,0 +1,26 @@
+# IBM Developer's Workframe/2 Make File Creation run at 12:31:18 on 07/08/93
+
+# Make File Creation run in directory:
+#   C:\SOURCE\HELLOQMT;
+
+# Assumed INCLUDE environment variable path:
+#   C:\IBMC\INCLUDE;
+#   C:\TOOLKT20\C\OS2H;
+#   C:\TOOLKT20\ASM\OS2INC;
+
+
+HELLO.RES:  HELLO.RC  \
+#  {.;$(INCLUDE)}OS2.H  \
+   {.;$(INCLUDE)}HELLO.H  \
+   HELLO.ICO  \
+   HELLO.DLG  \
+     HELLO.H  \
+   MAKEFILE
+
+HELLO.OBJ:  HELLO.C  \
+#  {$(INCLUDE);}printq.h  \
+#  {$(INCLUDE);}stdio.h  \
+#  {$(INCLUDE);}stdlib.h  \
+#  {$(INCLUDE);}string.h  \
+   {.;$(INCLUDE);}hello.h  \
+   MAKEFILE

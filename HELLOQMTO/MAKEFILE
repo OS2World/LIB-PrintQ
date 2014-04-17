@@ -1,0 +1,36 @@
+# IBM Developer's Workframe/2 Make File Creation run at 08:59:51 on 08/19/93
+
+# Make File Creation run in directory:
+#   C:\SOURCE\HELLOQMTO;
+
+.SUFFIXES:
+
+.SUFFIXES: .c .cpp .cxx .rc
+
+ALL: HELLO.EXE \
+     HELLO.RES
+
+HELLO.EXE:  \
+  HELLO.OBJ \
+  HELLO.RES \
+  MAKEFILE
+   ICC.EXE @<<
+ /B" /noe /nod"
+ /Fe"HELLO.EXE" DDE4MBS.LIB OS2386.LIB PRINTQ.LIB HELLO.DEF 
+HELLO.OBJ
+<<
+   RC HELLO.RES HELLO.EXE
+
+{.}.rc.res:
+   RC -r .\$*.RC
+
+{.}.c.obj:
+   ICC.EXE /Tdc /Ss /Wgen /O /Gm /Ms /C   .\$*.c
+
+{.}.cpp.obj:
+   ICC.EXE /Tdc /Ss /Wgen /O /Gm /Ms /C   .\$*.cpp
+
+{.}.cxx.obj:
+   ICC.EXE /Tdc /Ss /Wgen /O /Gm /Ms /C   .\$*.cxx
+
+!include MAKEFILE.DEP

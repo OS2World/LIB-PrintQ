@@ -1,0 +1,29 @@
+; printq.def -- module definition file for printq.dll 
+; Version 1.31, (C) Peter Wansch, 1994
+; created: 93-5-28
+
+
+LIBRARY PRINTQ INITINSTANCE TERMINSTANCE
+DESCRIPTION 'PRINTQ 1.31 - Print Library for OS/2 Presentation Manager Programs (C) Peter Wansch 1994'
+PROTMODE
+CODE PRELOAD
+DATA PRELOAD NONSHARED
+EXPORTS
+        hcInfoDef
+        prqInfoDef
+        alCaps
+        SpoolInitialize
+        SpoolTerminate
+        SpoolBeginSetup
+        SpoolEndSetup
+        SpoolBeginSpool
+        SpoolEndSpool
+        SpoolAbortSpool
+        SpoolBeginInfo
+        SpoolEndInfo
+        SpoolJobProp
+        SpoolNewFrame
+        SpoolSetDef
+        SpoolIsJobStarted
+        hdcPrn
+

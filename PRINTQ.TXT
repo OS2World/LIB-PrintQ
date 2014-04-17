@@ -1,0 +1,849 @@
+PrintQ - Print Library for OS/2 Presentation Manager Programs
+(C) Peter Wansch, 1994
+Version 1.31
+
+Contents
+========
+
+1. Introduction .............................................................. 1
+1.1 What's new? .............................................................. 2
+2. Requirements .............................................................. 2
+3. Components of the Print Subsystem ......................................... 2
+4. Functions ................................................................. 3
+5. Compiling, installing and using the library .............................. 11
+6. Multithreading considerations ............................................ 11
+7. e-mail ................................................................... 12
+
+
+1. Introduction
+===============
+
+The operating system OS/2 Version 2 and its graphical program environment 
+Presentation Manager provide outstanding functionality and consistency both 
+for the program developer and the user. The programming interface of the 
+print subsystem combined with the powerful functions of the Graphic 
+Programming Interface (GPI) enable the programmer to create device-independent 
+printed output. 
+
+However most books about Presentation Manager programming (even those known 
+for their in-depth coverage of PM-Programming like "Programming the OS/2 
+Presentation Manager" by Charles Petzold) lack a chapter on printing. A 
+possible reason for that could be the fact that programming printing does not 
+only require some knowledge about the corresponding functions but also a 
+detailed understanding of the print subsystem itself. 
+
+Hence it can be difficult for inexperienced programmers to tackle printing. 
+On the one hand the programming references and books lack comprehensible 
+examples and the sample print program from the Developers Toolkit is too 
+complex to use it as a template.
+
+The dynamic link library PrintQ completely hides the print subsystem from the 
+programmer and provides 13 extremely easy to use functions and 4 data
+structures to create printed output from your Presentation Manager 
+applications. Hence PrintQ substantially reduces the complexity of a 
+Presentation Manager application and the time to implement printing because 
+the programmer needs no knowledge about the print subsystem. 
+
+I hope this document together with the sample application Hello queue/2 that
+uses the PrintQ library provides sufficient and comprehensible documentation 
+for programmers. This document is a brief summary of a document about the 
+print subsystem and the PrintQ library which I wrote in German. I suggest that 
+you read this document first (you don't actually have to read chapter 3) and 
+have a look at the sample programs after that.
+
+The code for the PrintQ library as well as the PRINTQ.DLL and PRINTQ.LIB files
+can be found in the \PRINTQ directory. The code and the file hello.exe for the
+sample program Hello queue/2 can be found in the \HELLOQ1, \HELLOQ2 , \HELLOQ3,
+\HELLOQMT and \HELLOQO directories. The sample programs are almost identical but 
+Hello queue/2 1.0 uses a cached-micro presentation space for drawing (obtained 
+withWinBeginPaint) and obtains a handle to the printer presentation space with 
+the function SpoolBeginSpool whereas Hello queue/2 1.1 uses a normal presentation 
+space both for drawing and printing. Hello queue/2 1.2 shows how printing from 
+a secondary thread is accomplished and Hello queue/2 1.3 shows how to save 
+printer settings
+
+                                      -1- 
+1.1 What's new?
+===============
+
+When you started a program using the PrintQ library 1.0 or 1.1, all settings
+of the printer queues were reset to their default values. Now you can save the
+printer settings and restore them when you call SpoolInitialize. This enables
+you to save the printer settings with documents or just to save the printer
+settings in an initialization file, so that they do not have to be changed
+each time you load the program. Hello queue/2 1.3 in the \HELLOQ3 directory
+shows how to do that and how to use the printer font dialog.
+
+It is now safe to call PrintQ functions from separate threads in a process 
+since they are serialized in the PrintQ library. The sample program Hello 
+queue/2 1.2 in the directory \HELLOQMT shows how to implement a secondary 
+print thread.
+
+More sophisticated Presentation Manager applications don't use a cached micro 
+or a micro presentation space that is obtained with the WinBeginPaint function 
+call because of its limited functionality. These programs use normal 
+presentation spaces that are created for a display window in response to the 
+WM_CREATE message of your main application window (using GpiCreatePS), 
+associated with the display device (the handle to that device is obtained with 
+the WinOpenWindowDC function) and kept until termination. 
+These presentation spaces also have to be destroyed using GpiDestroy. Unlike 
+cached-micro and micro presentation spaces, normal presentation spaces can be 
+disassociated from the screen device and associated with a printer device 
+which makes sense since all the settings are retained. 
+
+PrintQ now supports this type of applications as well and the sample program 
+Hello queue/2 1.1 demonstrates the use of PrintQ functions in such a program. You just 
+specifiy the handle of your normal presentation space as a parameter in 
+SpoolBeginSpool or SpoolBeginInfo and PrintQ automatically makes all the 
+associations and disassociations for you. This new feature makes PrintQ usable 
+for a broader range of applications while retaining its ease of use. Hello queue/2 1.0
+also demonstrate how you can print bitmaps.
+
+
+2. Requirements
+===============
+
+I assume that you have basic experience programming Presentation Manager
+applications in C and that you know how to paint in an applications client 
+window which comprises a certain knowledge about presentation space and device 
+contexts. To compile the source code for the dynamic link library and the sample 
+programs you need the IBM C Set/2 for OS/2 2.0 Version 1.0 and the Developer's 
+Toolkit for OS/2 2.0 (or higher versions) or any other C compiler for 
+OS/2 2.x.
+
+
+3. Components of the Print Subsystem
+====================================
+
+The following chapter provides background information about the print 
+subsystem which is not necessarily required to understand the PrintQ library.
+
+The print subsystem comprises the following components:
+
+  * the spooler
+  * the user interface of the print subsystem
+  * the queue driver (queue processor)
+  * the printer driver
+
+
+                                      -2-
+The Spooler is a background process that controls the print subsystem. It
+manages print jobs that are submitted by applications in the system. 
+Applications do not directly print to a physical printer (device) but to a 
+queue. The main purpose of the Spooler is to read print jobs from a queue, 
+sort them according to their priority and send them to the corresponding 
+physical device i. e. the printer. A spooler can manage more than one queue 
+at once. Per default each printer has its own queue. However other 
+configurations e.g. for printer sharing where two or more queues are connected 
+
+to a single device or printer pooling where two or more printer devices are 
+connected to a single queue are also possible. Each queue can be configured 
+individually. A print job in a queue is actually a meta file which is a 
+sequence of GPI function calls. 
+
+The user interface of the print subsystem is realised by means of printer
+objects on the Workplace Shell desktop. These device objects do not represent
+the physical printer devices but queues. Such a queue is connected to a 
+logical device that contains the specification of the corresponding physical 
+device. The specification comprises the printer driver and the port to which 
+the physical device is attached. The settings for the printer objects on the 
+desktop are stored in the system initialisation file OS2SYS.INI.
+
+The queue driver (sometimes referred to as queue processor) retrieves the 
+print jobs from the queue and sends the corresponding meta files to the 
+printer driver.
+
+The printer driver provides a dialog window that allows the user to view and
+change the configuration of the physical device (e. g. which forms are 
+available and which font cards are installed) and a dialog window that enables 
+the user to configure an individual print job (e. g. set the default font or 
+form). This configuration data is also referred to as Job properties. Hence a 
+print job consists of a meta file and Job properties which are its default 
+print settings. The printer driver also translates the device independent GPI 
+function calls in the meta file of a print job into a printer specific command 
+language like PCL, PPDS or Postscript. After the translation the printer 
+driver directly sends the data to the printer via the file system and the 
+corresponding port. 
+
+
+4. Functions
+============
+
+The functions that are provided by PrintQ are displayed in the following 
+table.
+
+                            {SpoolInitialize
+                                    |
+                                    |
+      {SpoolBeginSetup       {SpoolBeginInfo         {SpoolBeginSpool         
+              |                                              |
+              |                                              |
+  SpoolSetDef, SpoolJobProp                    SpoolNewFrame, GPI functions
+              |                                              |
+              |                                              |
+        SpoolEndSetup}        SpoolEndInfo}   SpoolAbortSpool, SpoolEndSpool}
+                                    |
+                                    |
+                              SpoolTerminate}
+
+Some functions (SpoolInitialize and SpoolTerminate, SpoolBeginSetup and 
+SpoolEndSetup, SpoolBeginInfo and SpoolEndInfo, SpoolBeginSpool and 
+SpoolEndSpool) form logical brackets.
+
+The use of these functions is shown in the sample programs.
+                                      -3-
+This dependence also imposes a sequence on the correct use of the library 
+functions. For instance SpoolAbortSpool and SpoolNewFrame can only be used 
+after a SpoolBeginSpool call. You should be familiar with these logical 
+brackets since they are used in Presentation Manager programs all the time 
+(e. g. WinInitialize and WinTerminate or WinBeginPaint and WinEndPaint). 
+In the following the use of these functions will be described.
+
+
+BOOL SpoolInitialize(HAB hab, PDRIVDATA pDriverData, PBOOL pfIni)
+
+  Before you can use any function or data structure provided by the library 
+  you have to initialise the library for use by your program. The first
+  parameter is the anchor block-handle of your application that you obtain by 
+  a WinInitialize function call which is normally the first statement in a 
+  Presentation Manager application. Hence it is advisable to call 
+  SpoolInitialize immediately after WinInitialize. If you have saved the driver
+  data you can pass a pointer to a DRIVDATA structure in the second parameter or
+  you can pass NULL. In the third parameter you pass a pointer to a flag. If
+  the flag is true, SpoolInitialize tries to set the default printer and its
+  settings according to the data passed in the second parameter. If that is
+  not possible (for instance if a different version of the corresponding printer
+  driver has been installed) the flag to which pfIni points will be set to FALSE
+  after the call. See Hello queue/2 1.3 in the \HELLOQ3 directory for an
+  example, where the driver data is stored in the user ini profile.
+
+  All Library functions  return a value of type BOOL which indicates whether
+  or not the function was  successful (TRUE success, FALSE error occurred). 
+  If you for instance call  any other library function before initialising 
+  the library, this function  will return FALSE. You should always check the 
+  return values of the PrintQ functions. In the sample programs the return 
+  value is only checked for the SpoolInitialize function to improve the 
+  clarity of the sample program.
+
+BOOL SpoolTerminate(void)
+
+  This function terminates the use of the PrintQ library and releases of 
+  resources associated with the application. It forms a logical bracket with 
+  the SpoolInitialize function like the WinInitialize and WinTerminate 
+  functions. Hence it is advisable that this function is the last but one 
+  function in your program with WinTerminate being the last function. 
+
+  The File menu of a Presentation Manager application normally contains a 
+  Printer setup item. When you choose this command a dialog window is 
+  displayed that consists of a list box and several push buttons. The list box 
+  displays the printers that are available in the system. The default printer 
+  (which can be set in the context menu of any printer object with the command 
+  "Set default") is selected. Now you can select a different printer or change 
+  the job properties for a printer. The job properties are the settings that 
+  are specific for the print job in your application. In your application you 
+  have to create a dialog box template for the printer setup dialog and write 
+  the dialog procedure. Your dialog box should consist of a list box, an OK 
+  button a Cancel button and a Job properties button. If you provide on-line 
+  help you should also include a Help button. In response to the WM_INITDLG 
+  messages which is sent to your dialog procedure before the dialog window is 
+  displayed, you have to call the following function.
+
+BOOL SpoolBeginSetup(HWND hwnd)
+
+  where hwnd is the handle to the printer list box. You can obtain a handle to
+  the list box using the WinWindowFromId function. When the user chooses the 
+  Job properties button you receive a corresponding WM_COMMAND message and you 
+  call the following function. If hwnd is NULLHANDLE, Printq assumes that you
+  don't want to display a list box. If you call SpoolJobProp the Jop properties
+  dialog window of the currently selected printer is displayed.
+
+                                      -4-
+BOOL SpoolJobProp(void)
+
+  This function displays the Job properties dialog window for the currently 
+  selected printer. When the user presses the OK button in the Printer setup
+  dialog window the default printer settings for your application has to be 
+  updated using the following function.
+
+BOOL SpoolSetDef(void)
+
+  sets the hilited printer in the List box your default printer. The data 
+  structures that information on the device and form capabilities are updated.
+
+BOOL SpoolEndSetup(void) 
+
+  forms a logical bracket with the SpoolBeginSetup function. It is advisable to
+  call the function after the WindDlgBox function call which displays the 
+  Printer setup dialog. 
+
+
+  If you want to obtain a presentation space to the printer currently selected 
+  in your application just to retrieve information (e. g. about font metrics), 
+  you use the following function.
+
+BOOL SpoolBeginInfo(PHPS phpsPrinterInfo, BOOL fAssocPS)
+
+  The parameter phpsPrinterInfo is a pointer to a HPS variable which is assigned
+  the presentation parameter of the currently selected printer if fAssocPS is 
+  FALSE. If fAssocPS is TRUE this function expects a pointer to the handle of 
+  a normal presentation space which it will associate with the printer device 
+  context. This returned presentation space is an information presentation 
+  space which is used to query information about a device associated with it. 
+  Directing GPI functions to this yields no printed output.
+
+BOOL SpoolEndInfo(void)
+
+  forms a logical bracket with the SpoolBeginInfo function. This function is 
+  especially important if you use a normal presentation space in your program 
+  since it re-associates the presentation space with the display device 
+  context.
+
+  A print job is normally started in response to the user choosing the Print 
+  command from the File menu i. e. in response to the corresponding WM_COMMAND
+  message. To start a print job you call the following function.
+
+BOOL SpoolBeginSpool(PSZ pszComment, PSZ pszDocName, PSZ pszQueueProcParams, 
+                     ULONG ulOptions, PHPS phpsPrinter, BOOL fAssocPS)
+
+  The first parameter pszComment is a zero-terminated comment string 
+  describing the print job. This string is displayed in the settings of a 
+  print job on the Submission data page and has no further relevance. The 
+  second parameter pszDocName is a null-terminated string that is the name 
+  (title) of the print job. This string is the document name of the print job. 
+  The third parameter pszQueueProcParms is a zero-terminated string that may 
+  contain commands for the queue processor separated by one or more blanks. 
+  The available commands are:
+
+  COP=n          
+
+  The COP parameter specifies the number of copies that you want printed. The 
+  value of n must be an integer in the range of 1 through 999. The default 
+  value of n is 1.
+
+
+
+                                      -5-
+  COL=M|C  
+
+  The COL parameter enables you to specify color output if you have a color
+  printer. A value of COL=M creates monochrome output. A value of COL=C creates
+  color output. The default value of COL is M for a monochrome printer and C 
+  for a color printer.
+
+  MAP=N|A        
+
+  The MAP parameter specifies how neutral colors (colors which were not 
+  defined e. g. the background color) are printed. The default value N yields 
+  a white background and a black foreground while a value of MAP=A provides 
+  the reverse of the normal representation. 
+
+  ARE=C|w,h,l,t  
+
+  This parameter determines the size and position of the output area on the 
+  physical printer page. The default value of ARE=C means that the output area
+  is the whole page. To size and position the output area at a specific point 
+  
+  
+  on the page use ARE=w,h,l,t where w and h are the width and height of the 
+  desired output area and l and t are the offsets of the upper-left corner of 
+  the output area from the left and from the top of the maximum output area. 
+  These four values must be gives as percentages of the maximum output 
+  dimensions.
+
+  FIT=S|l,t      
+
+  This parameter determines which part of a picture is to be printed. The 
+  default value of FIT=S causes the output to be scaled until the larger of 
+  the height or width just fits within the defined output area. The aspect 
+  ratio of the picture is maintained. To print the picture in actual size use 
+  FIT=l,t where l and t are the coordinates of the point in the picture that 
+  you want positioned at the center of the output area. l is measured from the 
+  left edge of the picture and it is measured from the top edge. The 
+  coordinates must be gives as percentages of the actual dimensions of the 
+  picture.
+
+  XFM=0|1        
+
+  The default value of XFM=1 allows the appearance of the output to be 
+  determined by the ARE and FIT parameters. A value of XFM=0 yields output as 
+  specified in the picture file.
+
+  For instance the string "COP=2 MAP=A" would result in two inverse copies.
+
+  Default values are used for parameters that are omitted or used incorrectly.
+  Bitmaps or image data is not affected by the ARE and FIT parameters.
+
+  The fourth parameter ulOptions determines the scale units for the printer 
+  presentation space. If you use 0UL, pixels are used. Other options are 
+  PU_LOMTRIC (0.1 mm), PU_HIMETRIC (0.01 mm), PU_LOENGLISH (0.01 inch), 
+  PU_HIENGLISH (0.001 inch) or PU_TWIPS (1/1440 inch). If fAssocPS is TRUE, 
+  the parameter phpsPrinter is a pointer to a HPS variable which is assigned 
+  the presentation space of the currently selected printer. If fAssocPS is 
+  TRUE this function expects a pointer to the handle of a normal presentation 
+  space which it will associate with the printer device context. 
+  Now you can use this presentation space handle as the first parameter for 
+  GPI functions like GpiLine. The coordinates are interpreted with respect to 
+  the ulOptions parameter.
+
+  Use the following function to start a new page and to eject the old page.
+
+                                      -6-
+BOOL SpoolNewFrame(void)
+
+  To end the print job use the following function.
+
+BOOL SpoolEndSpool(PUSHORT pusJobId)
+
+  The parameter pusJobId is a pointer to an USHORT variable which is assigned 
+  the id of the submitted print job. This variable can be used to inform the 
+  user of the id of the print job if desired. 
+ 
+  If you decide to abort the print job without actually printing after calling 
+  the SpoolBeginSpool function (e. g. in response to a user request) you use 
+  the following function.
+
+SpoolAbortSpool(void)
+
+  Please note that it is not neccessary to call SpoolEndSpool after 
+  SpoolAbortSpool since you either call SpoolAbortSpool or SpoolEndSpool to 
+  close the logical bracket with the SpoolBeginSpool function.
+
+  
+  The library also provides 4 variables. These variables are only valid after
+  initialising the Library using the SpoolInitialize function and before de-
+  registering from the library using the SpoolTerminate function. Their use is 
+  illustrated in the sample program Hello queue/2. The variable hcInfoDef is
+  a structure of type HCINFO and it contains information about the currently 
+  selected form of the currently selected printer. It is also described in the 
+  PM Reference as follows:
+
+  typedef struct _HCINFO {
+    CHAR    szFormname[32];  /* Form name */
+    LONG    cx;              /* Width (left-to-right) in millimeters  */
+    LONG    cy;              /* Height (top-to-bottom) in millimeters  */
+    LONG    xLeftClip;       /* Left clip limit in millimeters  */
+    LONG    yBottomClip;     /* Bottom clip limit in millimeters  */
+    LONG    xRightClip;      /* Right clip limit in millimeters  */
+    LONG    yTopClip;        /* Top clip limit in millimeters  */
+    LONG    xPels;           /* Pels between left and right clip limits  */
+    LONG    yPels;           /* Pels between bottom and top clip limits  */
+    LONG    flAttributes;    /* Attributes of the form identifier  */
+  } HCINFO;
+
+  The variable prqInfoDef is a structure of type PRQINFO3 and is described in
+  the PM Reference as follows. It provides information about the currently 
+  selected printer queue.
+
+  typedef struct _PRQINFO3 {
+    PSZ          pszName;        /* Queue name  */
+    USHORT       uPriority;      /* Queue priority  */
+    USHORT       uStartTime;     /* Time when queue becomes active  */
+    USHORT       uUntilTime;     /* Time when queue ceases to be active  */
+    USHORT       fsType;         /* Queue type  */
+    PSZ          pszSepFile;     /* SeParator-page file  */
+    PSZ          pszPrProc;      /* Default queue-processor  */
+    PSZ          pszParms;       /* Queue Parameters  */
+    PSZ          pszComment;     /* Queue description  */
+    USHORT       fsStatus;       /* Queue status  */
+    USHORT       cJobs;          /* Number of jobs in queue  */
+    PSZ          pszPrinters;    /* Print devices connected to queue  */
+    PSZ          pszDriverName;  /* Default device driver  */
+    PDRIVDATA    pDriverData;    /* Default queue job properties  */
+  } PRQINFO3;
+
+
+                                      -7-
+  The third variable alCaps is an array of LONG values. You access the array 
+  elements using the following symbolic names. For instance the number of 
+  available physical colors on the currently selected printer (which will be 2 
+  for non-color printers) is alCaps[CAPS_PHYS_COLORS]. The following description 
+  is copied from the PM Reference.
+
+  CAPS_FAMILY 
+    Device type (values as for lType in DevOpenDC). 
+  CAPS_IO_CAPS 
+    Device input/output capability: 
+    CAPS_IO_DUMMY 
+      Dummy device 
+    CAPS_SUPPORTS_OP 
+      Device supports output 
+    CAPS_SUPPORTS_IP 
+       Device supports input 
+    CAPS_SUPPORTS_IO 
+       Device supports output and input. 
+  
+  CAPS_TECHNOLOGY 
+      Technology: 
+    CAPS_TECH_UNKNOWN 
+      Unknown 
+    CAPS_TECH_VECTOR_PLOTTER 
+      Vector plotter 
+    CAPS_TECH_RASTER_DISPLAY 
+      Raster display 
+    CAPS_TECH_RASTER_PRINTER 
+      Raster printer 
+     CAPS_TECH_RASTER_CAMERA 
+      Raster camera 
+    CAPS_TECH_POSTSCRIPT 
+      PostScript device. 
+  CAPS_DRIVER_VERSION 
+    Version identifier of the Presentation driver. The high order word of the 
+    version identifier is 0. The low order word identifies the release, for 
+    example x0120 is release 1.2. 
+  CAPS_WIDTH 
+    Media width (for a full screen, maximized window for displays) in pels. 
+  CAPS_HEIGHT 
+    Media depth (for a full screen, maximized window for displays) in pels. 
+    (For a plotter, a pel is defined as the smallest possible displacement of 
+    the pen and can be smaller than a pen width.) 
+  CAPS_WIDTH_IN_CHARS 
+    Media width (for a full screen, maximized window for displays) in default 
+    character columns. 
+  CAPS_HEIGHT_IN_CHARS 
+    Media depth (for a full screen, maximized window for displays) in default 
+    character rows. 
+  CAPS_HORIZONTAL_RESOLUTION 
+    Horizontal resolution of device in pels per meter. 
+  CAPS_VERTICAL_RESOLUTION 
+    Vertical resolution of device in pels per meter. 
+  CAPS_CHAR_WIDTH 
+    Default character-box width in pels for VIO. 
+  CAPS_CHAR_HEIGHT 
+    Default character-box height in pels for VIO. 
+  CAPS_SMALL_CHAR_WIDTH 
+    Default small-character box width in pels for VIO. This is 0 if there is 
+    only one character-box size. 
+  CAPS_SMALL_CHAR_HEIGHT 
+    Default small-character box height in pels for VIO. This is 0 if there is 
+    only one character-box size. 
+
+                                      -8-
+  CAPS_COLORS 
+    Number of distinct colors supported at the same time, including reset 
+    (gray scales count as distinct colors). If loadable color tables are 
+    supported, this is the number of entries in the device color table.  For 
+    plotters, the value returned is the number of pens plus one (for the 
+    background). 
+  CAPS_COLOR_PLANES 
+    Number of color planes. 
+  CAPS_COLOR_BITCOUNT 
+    Number of adjacent color bits for each pel (within one plane). 
+  CAPS_COLOR_TABLE_SUPPORT 
+    Loadable color table support: 
+    CAPS_COLTABL_RGB_8 
+      1 if RGB color table can be loaded, with a minimum support of 8 bits 
+      each for red, green, and blue. 
+    CAPS_COLTABL_RGB_8_PLUS 
+      1 if color table with other than 8 bits for each primary color can be 
+      loaded. 
+    
+    CAPS_COLTABL_TRUE_MIX 
+      1 if true mixing occurs when the logical color table has been realized, 
+      providing that the size of the logical color table is not greater than 
+      the number of distinct colors supported (see element CAPS_COLORS). 
+    CAPS_COLTABL_REALIZE 
+      1 if a loaded color table can be realized. 
+  CAPS_MOUSE_BUTTONS 
+    The number of pointing device buttons that are available. A returned value 
+    of 0 indicates that there are no pointing device buttons available. 
+  CAPS_FOREGROUND_MIX_SUPPORT 
+    Foreground mix support: 
+    CAPS_FM_OR 
+      Logical OR. 
+    CAPS_FM_OVERPAINT 
+      Overpaint. 
+    CAPS_FM_XOR 
+      Logical XOR. 
+    CAPS_FM_LEAVEALONE 
+      Leave alone. 
+    CAPS_FM_AND 
+      Logical AND. 
+    CAPS_FM_GENERAL_BOOLEAN 
+      All other mix modes; see GpiSetMix. The value returned is the sum of the 
+      values appropriate to the mixes supported. A device capable of 
+      supporting OR must, as a minimum, return CAPS_FM_OR + CAPS_FM_OVERPAINT + 
+      PS_FM_LEAVEALONE, signifying support for the mandatory mixes OR, 
+      overpaint, and leave-alone. Note that these numbers correspond to the 
+      decimal representation of a bit string that is six bits long, with each 
+      bit set to 1 if the appropriate mode is supported. Those mixes returned 
+      as supported are guaranteed for all primitive types.
+  CAPS_BACKGROUND_MIX_SUPPORT 
+    Background mix support: 
+    CAPS_BM_OR 
+      Logical OR. 
+    CAPS_BM_OVERPAINT 
+      Overpaint. 
+    CAPS_BM_XOR 
+      Logical XOR. 
+    CAPS_BM_LEAVEALONE 
+      Leave alone. 
+    CAPS_BM_AND 
+      Logical AND. 
+
+
+
+                                      -9-
+    CAPS_BM_GENERAL_BOOLEAN 
+      All other mix modes; see GpiSetBackMix. The value returned is the sum of 
+      the values appropriate to the mixes supported. A device must, as a 
+      minimum, return CAPS_BM_OVERPAINT + CAPS_BM_LEAVEALONE, signifying 
+      support for the mandatory background mixes overpaint, and leave-alone. 
+      Note that these numbers correspond to the decimal rePresentation of a bit 
+      string that is four bits long, with each bit set to 1 if the appropriate 
+      mode is supported. Those mixes returned as supported are guaranteed for 
+      all primitive types.  
+  CAPS_VIO_LOADABLE_FONTS 
+    Number of fonts that can be loaded for VIO. 
+  CAPS_WINDOW_BYTE_ALIGNMENT 
+    Whether or not the client area of VIO windows should be byte-aligned: 
+    CAPS_BYTE_ALIGN_REQUIRED 
+      Must be byte-aligned. 
+    CAPS_BYTE_ALIGN_RECOMMENDED 
+      More efficient if byte-aligned, but not required. 
+    CAPS_BYTE_ALIGN_NOT_REQUIRED 
+      Does not matter whether byte-aligned. 
+  
+  CAPS_BITMAP_FORMATS 
+    Number of bit-map formats supported by device. 
+  CAPS_RASTER_CAPS 
+    Capability for device raster operations: 
+    CAPS_RASTER_BITBLT 
+      1 if GpiBitBlt and GpiWCBitBlt supported 
+    CAPS_RASTER_BANDING 
+      1 if banding is supported 
+    CAPS_RASTER_BITBLT_SCALING 
+      1 if GpiBitBlt and GpiWCBitBlt with scaling supported. 
+    CAPS_RASTER_SET_PEL 
+      1 if GpiSetPel supported. 
+    CAPS_RASTER_FONTS 
+      1 if this device can draw raster fonts. 
+    CAPS_RASTER_FLOOD_FILL 
+      1 if GpiFloodFill is supported. 
+  CAPS_MARKER_HEIGHT 
+    Default marker-box height in pels. 
+ 
+  CAPS_MARKER_WIDTH 
+    Default marker-box width in pels. 
+  CAPS_DEVICE_FONTS 
+    Number of device-specific fonts. 
+  CAPS_GRAPHICS_SUBSET 
+    Graphics drawing subset supported. (3 indicates GOCA DR/3) 
+  CAPS_GRAPHICS_VERSION 
+    Graphics architecture version number supported. (1 indicates Version 1) 
+  CAPS_GRAPHICS_VECTOR_SUBSET 
+    Graphics vector drawing subset supported. (2 indicates GOCA VS/2) 
+  CAPS_DEVICE_WINDOWING 
+    Device windowing support: 
+    CAPS_DEV_WINDOWING_SUPPORT 
+      1 if device supports windowing. Other bits are reserved 0. 
+  CAPS_ADDITIONAL_GRAPHICS 
+    Additional graphics support: 
+    CAPS_GRAPHICS_KERNING_SUPPORT 
+      1 if device supports kerning. 
+    CAPS_FONT_OUTLINE_DEFAULT 
+      1 if device has a default outline font. 
+    CAPS_FONT_IMAGE_DEFAULT 
+      1 if device has a default image font. 
+    CAPS_SCALED_DEFAULT_MARKERS 
+      1 if default markers are to be scaled by the marker-box attribute. 
+
+                                      -10-
+    CAPS_COLOR_CURSOR_SUPPORT 
+      1 if device supports colored cursors. 
+    CAPS_PALETTE_MANAGER 
+      1 if device supports palette functions. 
+    CAPS_COSMETIC_WIDELINE_SUPPORT 
+      1 if device supports cosmetic thick lines  
+    CAPS_ENHANCED_TEXT 
+      1 if device supports full font file description and text alignment. 
+      Other bits are reserved 0. 
+  CAPS_PHYS_COLORS 
+    Maximum number of distinct colors available on the device. 
+  CAPS_COLOR_INDEX 
+    Maximum logical color-table index supported for this device. For the EGA 
+    and VGA drivers, the value is 63. 
+  CAPS_GRAPHICS_CHAR_WIDTH 
+    Default graphics character-box width, in pels. 
+  CAPS_GRAPHICS_CHAR_HEIGHT 
+    Default graphics character-box height, in pels. 
+  
+  CAPS_HORIZONTAL_FONT_RES 
+    Effective horizontal device resolution in pels per inch, for the purpose 
+    of selecting fonts. For printers, this is the actual device resolution, 
+    but for displays it may differ from the actual resolution for reasons of 
+    legibility. 
+  CAPS_VERTICAL_FONT_RES 
+    Effective vertical device resolution in pels per inch, for the purpose of 
+    selecting fonts. 
+  CAPS_DEVICE_FONT_SIM 
+    Identifies which simulations are valid on device fonts. Valid flags are: 
+    CAPS_DEVICE_FONT_SIM_BOLD 
+    CAPS_DEVICE_FONT_SIM_ITALIC 
+    CAPS_DEVICE_FONT_SIM_UNDERSCORE 
+    CAPS_DEVICE_FONT_SIM_STRIKEOUT 
+  CAPS_LINEWIDTH_THICK 
+    Cosmetic thickness of lines and arcs on this device, when fxLineWidth is   
+    LINEWIDTH_THICK. The units are pels.  A value of 0 is interpreted as 2 
+    pels.  
+
+  If you select another printer or change the Job properties of the currently 
+  selected printer these variables are updated. You use these variables to 
+  position graphics on a page (e. g. to determine the boundaries of a page).
+
+The fourth variable hcPrn is a handle to the printer device context. You need
+this handle when you want to print bitmaps.
+
+
+5. Compiling, installing and using the library
+==============================================
+
+The source code of the library and the sample programs Hello queue/2 include
+makefiles. The makefiles require the include file ibmc.inc which must be 
+copied to an include path. (e. g. \IBMC\INCLUDE for the IBM C Set/2 1.0 
+compiler). To create the DLL and the import library type NMAKE at the command 
+prompt. Then you have to copy the file PRINTQ.DLL to a path that is included in 
+the LIBPATH statement of your CONFIG.SYS file (e. g. \OS2\DLL). To use the 
+library in an application you have to copy the created import library PRINTQ.LIB 
+to a directory where your C compiler searches for libraries (e. g. \IBMC\LIB). 
+You also have to copy the file PrintQ.h to a path where your C compiler searches 
+for include files (e. g. \IBMC\INCLUDE). In every C source code file that uses 
+PrintQ library functions you have to insert the following line
+
+#include <printq.h>
+
+The file PRINTQ.H contains function prototypes and the definition of the 3 
+variables. Makes sure that you add the name of the import library file 
+PRINTQ.LIB when linking the .obj files. You have to use the system linkage
+convention (IBM C Set/2 1.0 compiler option /Ms) instead of optlink.
+                                      -11-
+6. Multithreading considerations
+================================
+
+If spooling a print job in your application takes considerably longer than a 
+few seconds you might want to use a secondary thread to print from your 
+application so that the system queue is not blocked while you are printing. 
+Please note that if you use a normal presentation space and you have started a 
+print job the presentation space is not associated with your screen until you 
+call either SpoolAbortSpool or SpoolEndSpool so you must think of a way to 
+synchronize painting and printing. You could for instance obtain a cached 
+micro-presentation space when printing and just paint the window with 
+SYSCLR_WINDOW in the meantime. 
+
+The first two samples do not print in secondary threads so if you plan to do so 
+in your application, have a look at Hello queue/2 1.2 in \HELLOQMT. 
+
+Here is a short description of the program:
+
+In your primary thread a flag fPrintThreadStarted indicates if there is a 
+secondary print thread. This variable is initialised as FALSE. In response to 
+a Print-WM_COMMAND message you set this variable TRUE. Then you create a 
+thread for the printing function Print(). While the printing flag is set you 
+must not allow your primary thread to modify the data that is being printed in 
+any way. It's a good idea to gray the menu items that change the data and the 
+Print menu item. In our sample application only the Printer setup choice can 
+change the data so it is grayed. The Print item has to be grayed because we 
+only allow one secondary thread at a time which is not a limitation. It is a 
+good idea to include an Abort print job choice in your File menu. This choice 
+is enabled when a print job has been started. You can determine whether or 
+not a job has been started using the SpoolIsJobStarted() function. We use this 
+function when processing the WM_INITMENU function. In response to the Abort 
+print job WM_COMMAND message we use the SpoolAbortSpool function to abort the 
+printing process. You can also use the SpoolIsJobStarted function in your 
+printing function to determine - while calling GpiFunctions - if the job has 
+been aborted. If SpoolIsJobStarted returns FALSE then you post a "Job done" 
+message to your application window. I think this is quite an elegant 
+alternative to the modal dialog box in Windoze. In the secondary thread after 
+everything is printed and before it terminates you should as mentioned before 
+post a message to your main window procedure to report that the job has been 
+done. In response to that you set the printing flag fPrintThreadStarted to 
+FALSE. This is a very simple communication pattern that works fine for 
+communication with secondary threads. You just have to check the return code of 
+WinPostMsg because in the (unlikely) event that your message queue is full your 
+printing flag is never reset because you lost the message posted by the printing 
+function. Hence I suggest something like this when using WinPostMsg to ensure 
+that a message is posted sucessfully:
+
+  while (!WinPostMsg(hwndMain, WMP_PRINT_JOB_DONE, NULL, NULL))
+    DosSleep(BACKOFF_TIME);
+
+When your primary window is destroyed (i.e. in the course of processing the 
+WM_DESTROY message) you have to wait for the print thread to terminate. 
+
+If you have to use _beginthread to start your printing thread you must use the 
+_Optlink keyword to specifiy the oplink linkage convention otherwise the 
+compile will report an error if you use the /Ms option for system linkage. 
+You must not use the optlink convention for your entire program just for your 
+Print thread if started with _beginthread otherwise parameter passing to 
+PrintQ functions does not work. You specifiy optlink for a print function 
+called Print as follows:
+void _Optlink Print(void *arg);
+
+
+
+                                      -12-
+7. e-mail
+=========
+
+Your e-mail is appreciated if you have any comments, suggestions or questions.
+
+Peter Wansch
+Vienna, Austria
+e-mail p.wansch@ieee.org
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      -12-
+

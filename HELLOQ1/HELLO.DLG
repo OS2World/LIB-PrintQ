@@ -1,0 +1,34 @@
+/* hello.dlg: dialog resource file for Hello queue/2 */
+/* Version 1.0, (C) Peter Wansch, 1993               */
+/* created: 93-5-7                                   */
+/* modified: 93-8-16                                 */
+
+DLGINCLUDE 1 "HELLO.H"
+
+DLGTEMPLATE DB_QUERYPRINT PRELOAD
+BEGIN
+    DIALOG "Printer setup", DB_QUERYPRINT, -29, -16, 257, 127, FS_MOUSEALIGN,
+			FCF_TITLEBAR | FCF_SYSMENU | FCF_DLGBORDER
+    BEGIN
+	LTEXT           "Select printer", ID_NULL, 12, 112, 65, 8
+	LISTBOX         LB_QUEUES, 10, 35, 232, 73
+	DEFPUSHBUTTON   "OK", DID_OK, 10, 10, 38, 13
+	PUSHBUTTON      "Cancel", DID_CANCEL, 59, 10, 38, 13
+	PUSHBUTTON      "Job properties...", PB_JOBPROP, 109, 10, 86, 13
+    END
+END
+
+DLGTEMPLATE DB_PRODINFO PRELOAD MOVEABLE DISCARDABLE
+BEGIN
+  DIALOG  "Product information", DB_PRODINFO, -80, -12, 160, 75, 
+          FS_MOUSEALIGN, FCF_SYSMENU | FCF_TITLEBAR | FCF_DLGBORDER
+  BEGIN
+    CTEXT           "Copyright (C) Peter Wansch, 1993.", ID_NULL, 2, 25, 156, 8
+    CTEXT           "All rights reserved.", ID_NULL, 2, 35, 156, 8
+    DEFPUSHBUTTON   "~OK", DID_OK, 60, 4, 40, 15
+    ICON            WD_MAIN, ID_NULL, 12, 52, 16, 16, WS_GROUP
+    LTEXT           "Hello queue/2", ID_NULL, 35, 60, 80, 8
+    LTEXT           "Version 1.0", ID_NULL, 35, 50, 80, 8
+  END
+END 
+

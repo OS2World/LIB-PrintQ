@@ -1,0 +1,14 @@
+; hello.def: module definition file for Hello queue/2
+; Version 1.3, (C) Peter Wansch, 1993
+; created: 93-8-16
+
+NAME            HELLO   WINDOWAPI
+DESCRIPTION     'Hello queue/2 (C) Peter Wansch 1993'
+PROTMODE
+
+STUB            'OS2STUB.EXE'
+
+STACKSIZE       16384
+HEAPSIZE        16384
+
+

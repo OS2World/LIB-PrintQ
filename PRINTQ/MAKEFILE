@@ -1,0 +1,29 @@
+# IBM Developer's Workframe/2 Make File Creation run at 11:00:09 on 08/19/93
+
+# Make File Creation run in directory:
+#   C:\SOURCE\PRINTQ;
+
+.SUFFIXES:
+
+.SUFFIXES: .c .cpp .cxx
+
+PRINTQ.DLL:  \
+  printq.OBJ \
+  MAKEFILE
+   ICC.EXE @<<
+ /B" /noe /nod"
+ /Fe"PRINTQ.DLL" DDE4MBS.LIB OS2386.LIB PRINTQ.DEF 
+printq.OBJ
+<<
+  IMPLIB PRINTQ.LIB PRINTQ.DLL
+
+{.}.c.obj:
+   ICC.EXE /Tdc /Ss /Wgenparprorearetuse /O /Rn /Ge- /Ms /C   .\$*.c
+
+{.}.cpp.obj:
+   ICC.EXE /Tdc /Ss /Wgenparprorearetuse /O /Rn /Ge- /Ms /C   .\$*.cpp
+
+{.}.cxx.obj:
+   ICC.EXE /Tdc /Ss /Wgenparprorearetuse /O /Rn /Ge- /Ms /C   .\$*.cxx
+
+!include MAKEFILE.DEP
